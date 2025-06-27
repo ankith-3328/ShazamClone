@@ -9,15 +9,18 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class FeatureExtractor {
-    public static List<Double> extractFrequencies(File audioFile) throws Exception {
+
+    public static List<Fingerprint> extractFingerprints(File audioFile) throws Exception {
         int bufferSize = 2048;
         int overlap = 1024;
         float sampleRate = 44100f;
 
-        List<Double> frequencies = new ArrayList<>();
+        List<Fingerprint> fingerprints = new ArrayList<>();
         AudioDispatcher dispatcher = AudioDispatcherFactory.fromFile(audioFile, bufferSize, overlap);
         FFT fft = new FFT(bufferSize);
         float[] amplitudes = new float[bufferSize / 2];
+
+        final int[] frameCount = {0};
 
         dispatcher.addAudioProcessor(new AudioProcessor() {
             @Override
@@ -27,25 +30,27 @@ public class FeatureExtractor {
                 fft.modulus(audioBuffer, amplitudes);
 
                 int maxIndex = 0;
-                float maxAmplitude = -1;
-
+                float maxAmp = -1;
                 for (int i = 0; i < amplitudes.length; i++) {
-                    if (amplitudes[i] > maxAmplitude) {
-                        maxAmplitude = amplitudes[i];
+                    if (amplitudes[i] > maxAmp) {
+                        maxAmp = amplitudes[i];
                         maxIndex = i;
                     }
                 }
 
-                double frequency = fft.binToHz(maxIndex, sampleRate);
-                frequencies.add(frequency);
+                int quantizedBin = maxIndex / 5;  // group nearby bins
+
+                fingerprints.add(new Fingerprint(frameCount[0], quantizedBin));
+                frameCount[0]++;
                 return true;
             }
 
             @Override
-            public void processingFinished() {}
+            public void processingFinished() {
+            }
         });
 
         dispatcher.run();
-        return frequencies;
+        return fingerprints;
     }
 }
